@@ -1,7 +1,14 @@
 #![no_std]
 #![no_main]
 
-use panic_halt as _;
+type DefaultSerial = arduino_hal::usart::Usart<
+    arduino_hal::pac::USART0,
+    // TODO: adjust this based on board
+    arduino_hal::port::Pin<arduino_hal::port::mode::Input, arduino_hal::hal::port::PE0>,
+    arduino_hal::port::Pin<arduino_hal::port::mode::Output, arduino_hal::hal::port::PE1>
+>;
+
+panic_serial::impl_panic_handler!(DefaultSerial);
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -17,6 +24,10 @@ fn main() -> ! {
      * for a different board can be adapted for yours.  The Arduino Uno currently has the most
      * examples available.
      */
+
+    let serial = share_serial_port_with_panic(arduino_hal::default_serial!(dp, pins, 57600));
+
+    ufmt::uwrite!(serial, "Hello there from serial!\r\n").unwrap();
 
     {% case board -%}
       {%- when "Adafruit Trinket" -%}
@@ -36,9 +47,17 @@ fn main() -> ! {
     let mut led = pins.led_rx.into_output();
     {%- endcase %}
 
+    let mut i = 0;
+
     loop {
         led.toggle();
-        arduino_hal::delay_ms(1000);
+        arduino_hal::delay_ms(750);
+
+        i += 1;
+
+        if i == 10 {
+            panic!("Yo! -- I've blinked a couple of times now - what do you want me to do next?");
+        }
     }
 }
 {%- comment %}
